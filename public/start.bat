@@ -1,5 +1,0 @@
-@echo off
-title 阻抗等高線分析工具
-echo 正在啟動本地服務...
-start http://localhost:8080/
-powershell -NoProfile -Command "$listener = New-Object System.Net.HttpListener; $listener.Prefixes.Add('http://localhost:8080/'); $listener.Start(); while($listener.IsListening){ $context = $listener.GetContext(); $req = $context.Request; $res = $context.Response; $urlPath = $req.Url.LocalPath.TrimStart('/'); if([string]::IsNullOrEmpty($urlPath)){ $urlPath = 'index.html' }; $filePath = Join-Path (Get-Location) $urlPath; if(Test-Path $filePath -PathType Leaf){ $bytes = [System.IO.File]::ReadAllBytes($filePath); if($filePath.EndsWith('.html')){$res.ContentType='text/html'}elseif($filePath.EndsWith('.js')){$res.ContentType='application/javascript'}elseif($filePath.EndsWith('.css')){$res.ContentType='text/css'}elseif($filePath.EndsWith('.svg')){$res.ContentType='image/svg+xml'}; $res.ContentLength64 = $bytes.Length; $res.OutputStream.Write($bytes, 0, $bytes.Length) } else { $res.StatusCode = 404 }; $res.OutputStream.Close() }"

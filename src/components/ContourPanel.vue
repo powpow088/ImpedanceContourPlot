@@ -52,7 +52,7 @@
                   <input type="number" v-model.number="wLimitTarget" @change="drawAllPlots" min="0" step="0.5" style="width: 60px; background: rgba(255,255,255,0.1); border: 1px solid #ffcc00; color: #fff; padding: 2px 4px; border-radius: 4px; text-align: center;"> %
                 </div>
                 <div class="summary-item" style="display: flex; align-items: center; gap: 8px;">
-                  <span class="check-icon">🚧</span> 銅厚管控目標 (篩選極值): &plusmn; 
+                  <span class="check-icon">🚧</span> 銅厚管控目標 : &plusmn; 
                   <input type="number" v-model.number="tLimitTarget" @change="drawAllPlots" min="0" :step="tStep" style="width: 60px; background: rgba(255,255,255,0.1); border: 1px solid #4ade80; color: #fff; padding: 2px 4px; border-radius: 4px; text-align: center;"> %
                 </div>
 
@@ -69,10 +69,10 @@
                     <span v-if="tLimitTarget > summaryData.tLimit" style="color: #ff4757; font-weight: bold; margin-left: 8px;">(超出範圍)</span>
                   </div>
                   <div class="summary-item" v-if="summaryData.hasIntersection">
-                    <span class="check-icon">✔️</span> (H) 全域安全交集: <span style="color: #ff69b4; font-weight: bold; margin: 0 8px;">{{ summaryData.hLimitLeft }}% ~ {{ summaryData.hLimitRight > 0 ? '+' : '' }}{{ summaryData.hLimitRight }}%</span>
+                    <span class="check-icon">✔️</span> (H) 交集: <span style="color: #ff69b4; font-weight: bold; margin: 0 8px;">{{ summaryData.hLimitLeft }}% ~ {{ summaryData.hLimitRight > 0 ? '+' : '' }}{{ summaryData.hLimitRight }}%</span>
                   </div>
                   <div class="summary-item" v-else>
-                    <span class="check-icon">❌</span> (H) 全域安全交集: <span style="color: #ff4757; font-weight: bold; margin: 0 8px;">無交集 (條件過嚴)</span>
+                    <span class="check-icon">❌</span> (H) 交集: <span style="color: #ff4757; font-weight: bold; margin: 0 8px;">無交集</span>
                   </div>
                 </div>
               </div>
@@ -89,13 +89,13 @@
         <div class="toolbar" style="display: flex; justify-content: flex-end; margin-bottom: 15px;">
           <div style="margin-right: 15px; display: flex; gap: 10px; color: #a0aec0; align-items: center; background: rgba(0,0,0,0.2); padding: 4px 10px; border-radius: 4px;">
             <span>顯示模式:</span>
-            <label style="cursor: pointer;"><input type="radio" v-model="displayMode" value="extremes" @change="requestPlotRedraw" /> T 極值 (在管控目標內)</label>
+            <label style="cursor: pointer;"><input type="radio" v-model="displayMode" value="extremes" @change="requestPlotRedraw" /> T 極值 </label>
             <label style="cursor: pointer;"><input type="radio" v-model="displayMode" value="all" @change="requestPlotRedraw" /> 全部</label>
           </div>
-          <label class="checkbox-label" title="在圖上顯示實際座標點" style="display: flex; align-items: center;">
+          <!-- <label class="checkbox-label" title="在圖上顯示實際座標點" style="display: flex; align-items: center;">
             <input type="checkbox" v-model="showSamplingPoints" @change="drawAllPlots" style="margin-right: 5px;" />
             顯示點位
-          </label>
+          </label> -->
         </div>
 
         <!-- 繪圖區 -->
@@ -296,7 +296,7 @@ function parseAndRender() {
         tStep.value = 1.0;
       }
 
-      parseSuccess.value = `解析成功！共 ${data.length} 筆資料 (${wVals.length}x${hVals.length})`;
+      parseSuccess.value = `解析成功！共 ${data.length} 筆資料 `;
       
       nextTick(() => {
         drawAllPlots();
