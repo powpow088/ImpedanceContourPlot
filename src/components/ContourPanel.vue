@@ -2,53 +2,94 @@
   <div class="panel-card contour-panel">
 
     <div class="panel-content">
-      <!-- 資料匯入區塊 -->
-      <div class="data-input-section" style="margin-bottom: 20px; padding: 15px; background: rgba(0,0,0,0.2); border: 1px solid #4a5568; border-radius: 8px;">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
-          <div>
-            <h3 style="margin-top: 0; color: #38bdf8; margin-bottom: 4px;">匯入資料 (CSV)</h3>
-            <p style="font-size: 13px; color: #a0aec0; margin-bottom: 0;">請從 Excel 複製包含 W, H, T, Z 的資料貼上，或直接上傳檔案：</p>
+      <!-- 頂部佈局：左側控制區 + 右側資料匯入區 -->
+      <div class="top-layout" style="display: flex; gap: 20px; align-items: stretch; margin-bottom: 20px;">
+
+        <!-- 左側：資料匯入區塊 -->
+        <div class="data-input-section" style="flex: 1; padding: 15px; background: rgba(0,0,0,0.2); border: 1px solid #4a5568; border-radius: 8px; display: flex; flex-direction: column;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+            <div>
+              <h3 style="margin-top: 0; color: #38bdf8; margin-bottom: 4px;">匯入資料 (CSV)</h3>
+              <p style="font-size: 13px; color: #a0aec0; margin-bottom: 0;">請從 Excel 貼上或上傳資料：</p>
+            </div>
+            <div>
+              <input type="file" accept=".csv,.txt,.tsv" @change="handleFileUpload" style="display: none;" ref="fileInput" />
+              <button class="btn-secondary" @click="$refs.fileInput.click()">📁 上傳檔案</button>
+            </div>
           </div>
-          <div>
-            <input type="file" accept=".csv,.txt,.tsv" @change="handleFileUpload" style="display: none;" ref="fileInput" />
-            <button class="btn-secondary" @click="$refs.fileInput.click()">📁 上傳 CSV 檔案</button>
+          <textarea 
+            v-model="pastedData" 
+            rows="6" 
+            placeholder="W&#9;H&#9;T&#9;Z0&#10;-10&#9;-10&#9;0&#9;48.5&#10;...請貼上資料..." 
+            style="flex: 1; width: 100%; background: #1e293b; color: #fff; border: 1px solid #4a5568; padding: 10px; font-family: monospace; border-radius: 4px; resize: vertical;"
+          ></textarea>
+          
+          <div style="margin-top: 10px; display: flex; gap: 10px; align-items: center;">
+            <button class="btn-primary" @click="parseAndRender" style="width: 150px;">分析繪圖</button>
+            <span v-if="parseError" style="color: #ff4757; font-weight: bold;">{{ parseError }}</span>
+            <span v-if="parseSuccess" style="color: #00f2fe; font-weight: bold;">{{ parseSuccess }}</span>
           </div>
         </div>
-        <textarea 
-          v-model="pastedData" 
-          rows="6" 
-          placeholder="W&#9;H&#9;T&#9;Z0&#10;-10&#9;-10&#9;0&#9;48.5&#10;...請貼上資料..." 
-          style="width: 100%; background: #1e293b; color: #fff; border: 1px solid #4a5568; padding: 10px; font-family: monospace; border-radius: 4px; resize: vertical;"
-        ></textarea>
         
-        <div style="margin-top: 10px; display: flex; gap: 10px; align-items: center;">
-          <button class="btn-primary" @click="parseAndRender" style="width: 150px;">分析繪圖</button>
-          <span v-if="parseError" style="color: #ff4757; font-weight: bold;">{{ parseError }}</span>
-          <span v-if="parseSuccess" style="color: #00f2fe; font-weight: bold;">{{ parseSuccess }}</span>
-        </div>
+        <!-- <div class="control-section"> -->
+          <!-- 右側：控制與結果區 -->
+          <div class="control-section" style="flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
+            <div v-if="!contourData" style="color: #a0aec0; padding: 20px; text-align: center; background: rgba(0,0,0,0.2); border-radius: 8px; border: 1px dashed #4a5568; flex: 1; display: flex; align-items: center; justify-content: center;">
+               請先匯入資料
+            </div>
+            
+            <div class="results-container" v-show="contourData" style="flex: 1; display: flex; flex-direction: column;">
+              <!-- 資料彙整顯示區 -->
+              <div class="summary-info" v-if="summaryData" style="flex: 1; box-sizing: border-box; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; border: 1px solid #4a5568;">
+                
+                <h4 style="margin-top: 0; color: #4ade80; margin-bottom: 4px;">動態調整區</h4>
+                <div class="summary-item" style="display: flex; align-items: center; gap: 8px;">
+                  <span class="check-icon">🎯</span> 阻抗管控目標: &plusmn; 
+                  <input type="number" v-model.number="z0Target" @change="drawAllPlots" min="0" step="0.5" style="width: 60px; background: rgba(255,255,255,0.1); border: 1px solid #4a5568; color: #fff; padding: 2px 4px; border-radius: 4px; text-align: center;"> %
+                </div>
+                <div class="summary-item" style="display: flex; align-items: center; gap: 8px;">
+                  <span class="check-icon">🚧</span> 線寬管控目標 (黃線): &plusmn; 
+                  <input type="number" v-model.number="wLimitTarget" @change="drawAllPlots" min="0" step="0.5" style="width: 60px; background: rgba(255,255,255,0.1); border: 1px solid #ffcc00; color: #fff; padding: 2px 4px; border-radius: 4px; text-align: center;"> %
+                </div>
+                <div class="summary-item" style="display: flex; align-items: center; gap: 8px;">
+                  <span class="check-icon">🚧</span> 銅厚管控目標 (篩選極值): &plusmn; 
+                  <input type="number" v-model.number="tLimitTarget" @change="drawAllPlots" min="0" :step="tStep" style="width: 60px; background: rgba(255,255,255,0.1); border: 1px solid #4ade80; color: #fff; padding: 2px 4px; border-radius: 4px; text-align: center;"> %
+                </div>
+
+                
+                <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #334155;">
+                  <div class="summary-item" :style="wLimitTarget > summaryData.wLimit ? 'color: #ff4757; font-weight: bold;' : ''">
+                    <span class="check-icon">{{ wLimitTarget > summaryData.wLimit ? '❌' : '✔️' }}</span> 
+                    線寬資料範圍: &plusmn; {{ summaryData.wLimit }}%
+                    <span v-if="wLimitTarget > summaryData.wLimit" style="color: #ff4757; font-weight: bold; margin-left: 8px;">(超出範圍)</span>
+                  </div>
+                  <div class="summary-item" :style="tLimitTarget > summaryData.tLimit ? 'color: #ff4757; font-weight: bold;' : ''">
+                    <span class="check-icon">{{ tLimitTarget > summaryData.tLimit ? '❌' : '✔️' }}</span> 
+                    銅厚資料範圍: &plusmn; {{ summaryData.tLimit }}%
+                    <span v-if="tLimitTarget > summaryData.tLimit" style="color: #ff4757; font-weight: bold; margin-left: 8px;">(超出範圍)</span>
+                  </div>
+                  <div class="summary-item" v-if="summaryData.hasIntersection">
+                    <span class="check-icon">✔️</span> (H) 全域安全交集: <span style="color: #ff69b4; font-weight: bold; margin: 0 8px;">{{ summaryData.hLimitLeft }}% ~ {{ summaryData.hLimitRight > 0 ? '+' : '' }}{{ summaryData.hLimitRight }}%</span>
+                  </div>
+                  <div class="summary-item" v-else>
+                    <span class="check-icon">❌</span> (H) 全域安全交集: <span style="color: #ff4757; font-weight: bold; margin: 0 8px;">無交集 (條件過嚴)</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        <!-- </div> -->
+
       </div>
 
+      <!-- 底部：繪圖區 -->
       <div class="results-container" v-show="contourData">
-        <!-- 資料彙整顯示區 -->
-        <div class="summary-info" v-if="summaryData">
-          <div class="summary-item" style="display: flex; align-items: center; gap: 8px;">
-            <span class="check-icon">🎯</span> 阻抗管控目標: &plusmn; 
-            <input type="number" v-model.number="z0Target" @change="drawAllPlots" step="0.5" style="width: 60px; background: rgba(255,255,255,0.1); border: 1px solid #4a5568; color: #fff; padding: 2px 4px; border-radius: 4px; text-align: center;"> %
-          </div>
-          <div class="summary-item" style="display: flex; align-items: center; gap: 8px;">
-            <span class="check-icon">🚧</span> 線寬管控目標 (黃線): &plusmn; 
-            <input type="number" v-model.number="wLimitTarget" @change="drawAllPlots" step="0.5" style="width: 60px; background: rgba(255,255,255,0.1); border: 1px solid #ffcc00; color: #fff; padding: 2px 4px; border-radius: 4px; text-align: center;"> %
-          </div>
-          <div class="summary-item"><span class="check-icon">✔️</span> 線寬變異極限: &plusmn; {{ summaryData.wLimit }}%</div>
-          <div class="summary-item"><span class="check-icon">✔️</span> 銅厚變異極限: &plusmn; {{ summaryData.tLimit }}%</div>
-          <div class="summary-item"><span class="check-icon">✔️</span> (H) 全域安全交集: <span style="color: #ff69b4; font-weight: bold; margin: 0 8px;">{{ summaryData.hLimitLeft }}% ~ +{{ summaryData.hLimitRight }}%</span></div>
-        </div>
-
         <!-- 繪圖區選項 -->
         <div class="toolbar" style="display: flex; justify-content: flex-end; margin-bottom: 15px;">
           <div style="margin-right: 15px; display: flex; gap: 10px; color: #a0aec0; align-items: center; background: rgba(0,0,0,0.2); padding: 4px 10px; border-radius: 4px;">
             <span>顯示模式:</span>
-            <label style="cursor: pointer;"><input type="radio" v-model="displayMode" value="extremes" @change="requestPlotRedraw" /> T 極值</label>
+            <label style="cursor: pointer;"><input type="radio" v-model="displayMode" value="extremes" @change="requestPlotRedraw" /> T 極值 (在管控目標內)</label>
             <label style="cursor: pointer;"><input type="radio" v-model="displayMode" value="all" @change="requestPlotRedraw" /> 全部</label>
           </div>
           <label class="checkbox-label" title="在圖上顯示實際座標點" style="display: flex; align-items: center;">
@@ -62,7 +103,7 @@
           <div class="chart-wrapper" v-for="matrix in sortedMatrices" :key="matrix.t_pct">
             <div :id="`plotly-contour-t${matrix.t_pct}`" class="chart-container"></div>
             <div class="h-range-label" v-if="localHRanges[`plotly-contour-t${matrix.t_pct}`]">
-              T={{ matrix.t_pct > 0 ? '+' : '' }}{{ matrix.t_pct }}% H 範圍: <span class="h-val">{{ localHRanges[`plotly-contour-t${matrix.t_pct}`].left }}% ~ +{{ localHRanges[`plotly-contour-t${matrix.t_pct}`].right }}%</span>
+              H 範圍: <span class="h-val">{{ localHRanges[`plotly-contour-t${matrix.t_pct}`].left }}% ~ {{ localHRanges[`plotly-contour-t${matrix.t_pct}`].right > 0 ? '+' : '' }}{{ localHRanges[`plotly-contour-t${matrix.t_pct}`].right }}%</span>
             </div>
           </div>
         </div>
@@ -81,7 +122,10 @@ const contourData = ref(null)
 const summaryData = ref(null)
 const z0Target = ref(5.0) 
 const wLimitTarget = ref(5.0) 
-const localHRanges = ref({}) 
+const tLimitTarget = ref(10.0) 
+const tStep = ref(1.0)
+
+const localHRanges = ref({})
 
 const pastedData = ref('')
 const parseError = ref('')
@@ -91,7 +135,8 @@ const displayMode = ref('extremes')
 
 const sortedMatrices = computed(() => {
   if (!contourData.value || !contourData.value.matrices) return []
-  let all = [...contourData.value.matrices].sort((a, b) => a.t_pct - b.t_pct);
+  const filteredMatrices = contourData.value.matrices.filter(m => Math.abs(m.t_pct) <= tLimitTarget.value);
+  let all = [...filteredMatrices].sort((a, b) => a.t_pct - b.t_pct);
   
   if (displayMode.value === 'extremes' && all.length > 3) {
     const min = all[0];
@@ -239,6 +284,18 @@ function parseAndRender() {
         matrices: matrices
       };
 
+      const maxT = Math.max(...matrices.map(m => Math.abs(m.t_pct))) || 10;
+      tLimitTarget.value = maxT; // 自動將 T 管控目標設為資料的最大變異值
+      
+      // 自動計算 T 的間距 (step) 以符合資料特性
+      const positiveTVals = Array.from(new Set(matrices.map(m => Math.abs(m.t_pct)))).sort((a, b) => a - b);
+      if (positiveTVals.length > 1) {
+        // 取最小兩個非負值的差當作間距 (例如: [0, 5, 10] -> 5 - 0 = 5)
+        tStep.value = positiveTVals[1] - positiveTVals[0];
+      } else {
+        tStep.value = 1.0;
+      }
+
       parseSuccess.value = `解析成功！共 ${data.length} 筆資料 (${wVals.length}x${hVals.length})`;
       
       nextTick(() => {
@@ -251,6 +308,10 @@ function parseAndRender() {
 function drawAllPlots() {
   if (!contourData.value) return
   
+  if (z0Target.value !== null && z0Target.value !== undefined) z0Target.value = Math.abs(z0Target.value)
+  if (wLimitTarget.value !== null && wLimitTarget.value !== undefined) wLimitTarget.value = Math.abs(wLimitTarget.value)
+  if (tLimitTarget.value !== null && tLimitTarget.value !== undefined) tLimitTarget.value = Math.abs(tLimitTarget.value)
+
   const xVals = contourData.value.h_axis_pct 
   const yVals = contourData.value.w_axis_pct 
   
@@ -317,7 +378,10 @@ function drawAllPlots() {
     const graphData = [];
     const displayTSet = new Set(sortedMatrices.value.map(m => m.t_pct));
     
-    for (const matrixObj of contourData.value.matrices) {
+    // 只計算在 tLimitTarget 範圍內的 T，來決定全域安全交集
+    const validMatrices = contourData.value.matrices.filter(m => Math.abs(m.t_pct) <= tLimitTarget.value);
+    
+    for (const matrixObj of validMatrices) {
       const tVal = matrixObj.t_pct;
       const zMatrix = matrixObj.z_matrix;
       
@@ -344,7 +408,8 @@ function drawAllPlots() {
       tLimit: Math.max(...contourData.value.matrices.map(m => Math.abs(m.t_pct))) || 10,
       hLimitLeft: globalHLeft.toFixed(1),
       hLimitRight: globalHRight.toFixed(1),
-      z0Thresh: z0Thresh
+      z0Thresh: z0Thresh,
+      hasIntersection: globalHLeft <= globalHRight
     }
     
     const maxRange = 12; 
@@ -416,12 +481,15 @@ function drawAllPlots() {
       }
 
       const shapes = [
-        { type: 'rect', x0: globalHLeft, x1: globalHRight, y0: -limitW, y1: limitW, fillcolor: '#ff69b4', opacity: 0.25, line: { width: 0 } },
         { type: 'line', x0: -15, x1: 15, y0: limitW, y1: limitW, line: { color: '#fbbf24', width: 2 } },
         { type: 'line', x0: -15, x1: 15, y0: -limitW, y1: -limitW, line: { color: '#fbbf24', width: 2 } },
-        { type: 'line', y0: -15, y1: 15, x0: gd.localHLeft, x1: gd.localHLeft, line: { color: '#3b82f6', width: 3, dash: 'dash' } },
-        { type: 'line', y0: -15, y1: 15, x0: gd.localHRight, x1: gd.localHRight, line: { color: '#3b82f6', width: 3, dash: 'dash' } }
+        { type: 'line', y0: -15, y1: 15, x0: gd.localHLeft, x1: gd.localHLeft, line: { color: '#3b82f6', width: 2, dash: 'dash' } },
+        { type: 'line', y0: -15, y1: 15, x0: gd.localHRight, x1: gd.localHRight, line: { color: '#3b82f6', width: 2, dash: 'dash' } }
       ];
+
+      if (globalHLeft <= globalHRight) {
+        shapes.unshift({ type: 'rect', x0: globalHLeft, x1: globalHRight, y0: -limitW, y1: limitW, fillcolor: '#ff69b4', opacity: 0.25, line: { width: 0 } });
+      }
 
       const layout = {
         title: { text: `T = ${gd.tVal}%`, font: { color: '#e2e8f0', family: 'Inter', size: 14 } },
