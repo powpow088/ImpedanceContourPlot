@@ -4,9 +4,11 @@ import { viteSingleFile } from 'vite-plugin-singlefile'
 
 export default defineConfig({
   base: './',
-  plugins: [vue()],
+  plugins: [vue(), viteSingleFile()],
   build: {
-    emptyOutDir: false
+    emptyOutDir: false,
+    assetsInlineLimit: 100000000,
+    chunkSizeWarningLimit: 1000
   },
   server: {
     open: true
