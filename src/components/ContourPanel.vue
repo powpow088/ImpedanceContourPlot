@@ -75,6 +75,25 @@
                     <span class="check-icon">❌</span> (H) 交集: <span style="color: #ff4757; font-weight: bold; margin: 0 8px;">無交集</span>
                   </div>
                 </div>
+
+                <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #334155;">
+                  <h4 style="margin-top: 0; color: #a855f7; margin-bottom: 4px;">反推線寬 (W)</h4>
+                  <div class="summary-item" style="display: flex; gap: 8px; align-items: center; margin-bottom: 6px; flex-wrap: wrap;">
+                    <span style="font-size:12px;">H (%):</span> <input type="number" v-model.number="calcH" @change="requestPlotRedraw" step="0.5" style="width: 50px; background: rgba(255,255,255,0.1); border: 1px solid #4a5568; color: #fff; padding: 2px 4px; border-radius: 4px; text-align: center;">
+                    <span style="font-size:12px;">T (%):</span> <input type="number" v-model.number="calcT" @change="requestPlotRedraw" step="0.5" style="width: 50px; background: rgba(255,255,255,0.1); border: 1px solid #4a5568; color: #fff; padding: 2px 4px; border-radius: 4px; text-align: center;">
+                    <span style="font-size:12px;">Z (%):</span> <input type="number" v-model.number="calcZ" @change="requestPlotRedraw" step="0.5" style="width: 50px; background: rgba(255,255,255,0.1); border: 1px solid #4a5568; color: #fff; padding: 2px 4px; border-radius: 4px; text-align: center;">
+                    W: 
+                    <span v-if="calcWResult !== null" style="color: #a855f7; font-weight: bold; font-size: 1.2em; margin-left: 8px;">{{ calcWResult > 0 ? '+' : '' }}{{ calcWResult.toFixed(2) }}%</span>
+                    <span v-else style="color: #ff4757; font-weight: bold; font-size: 1em; margin-left: 8px;">無對應解</span>
+                  </div>
+                  <div class="summary-item" style="display: flex; gap: 8px; align-items: center; color: #e2e8f0; font-size: 13px;">
+                    <span>W中值:</span>
+                    <input type="number" v-model.number="wBase" step="0.5" style="width: 60px; background: rgba(255,255,255,0.1); border: 1px solid #4a5568; color: #fff; padding: 2px 4px; border-radius: 4px; text-align: center;">
+                    <span v-if="calcWResult !== null" style="margin-left: 10px;">
+                      W 值: <span style="color: #00f2fe; font-weight: bold; font-size: 1.2em;">{{ (wBase * (1 + calcWResult / 100)).toFixed(4) }}</span>
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -126,6 +145,11 @@ const tLimitTarget = ref(10.0)
 const tStep = ref(1.0)
 
 const localHRanges = ref({})
+const calcH = ref(0)
+const calcT = ref(0)
+const calcZ = ref(0)
+const calcWResult = ref(null)
+const wBase = ref(4.0)
 
 const pastedData = ref('')
 const parseError = ref('')
@@ -373,6 +397,41 @@ function drawAllPlots() {
   }
 
   try {
+    // === 計算使用者指定的 H, T, Z 尋找對應的 W ===
+    const getZ3D = (w, h, t) => {
+      const matrices = contourData.value.matrices;
+      const tVals = matrices.map(m => m.t_pct);
+      if (t <= tVals[0]) return getZ(w, h, matrices[0].z_matrix);
+      if (t >= tVals[tVals.length - 1]) return getZ(w, h, matrices[tVals.length - 1].z_matrix);
+      
+      let m1 = matrices[0], m2 = matrices[1];
+      for (let i = 0; i < tVals.length - 1; i++) {
+        if (t >= tVals[i] && t <= tVals[i+1]) {
+           m1 = matrices[i]; m2 = matrices[i+1]; break;
+        }
+      }
+      const z1 = getZ(w, h, m1.z_matrix);
+      const z2 = getZ(w, h, m2.z_matrix);
+      if (m2.t_pct === m1.t_pct) return z1;
+      return z1 + ((t - m1.t_pct) / (m2.t_pct - m1.t_pct)) * (z2 - z1);
+    };
+
+    let foundW = null;
+    const wSamples = [];
+    for(let w = -20; w <= 20; w += 0.05) wSamples.push(w);
+    const targetZ = calcZ.value || 0;
+    for (let i = 0; i < wSamples.length - 1; i++) {
+       const z1 = getZ3D(wSamples[i], calcH.value || 0, calcT.value || 0);
+       const z2 = getZ3D(wSamples[i+1], calcH.value || 0, calcT.value || 0);
+       if ((z1 <= targetZ && z2 >= targetZ) || (z1 >= targetZ && z2 <= targetZ)) {
+          if (z2 === z1) { foundW = wSamples[i]; break; }
+          foundW = wSamples[i] + ((targetZ - z1) / (z2 - z1)) * (wSamples[i+1] - wSamples[i]);
+          break;
+       }
+    }
+    calcWResult.value = foundW;
+    // ===========================================
+
     let globalHLeft = -15;
     let globalHRight = 15;
     const graphData = [];
@@ -476,6 +535,23 @@ function drawAllPlots() {
             line: { color: 'rgba(0, 0, 0, 0.9)', width: 1 }
           },
           hoverinfo: 'none',
+          showlegend: false
+        });
+      }
+
+      if (calcWResult.value !== null) {
+        traces.push({
+          x: [calcH.value || 0],
+          y: [calcWResult.value],
+          mode: 'text',
+          type: 'scatter',
+          name: 'Target W',
+          text: ['📍'],
+          textposition: 'middle center',
+          textfont: {
+            size: 18
+          },
+          hoverinfo: 'x+y',
           showlegend: false
         });
       }
