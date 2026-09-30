@@ -77,7 +77,7 @@
                 </div>
 
                 <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #334155;">
-                  <h4 style="margin-top: 0; color: #a855f7; margin-bottom: 4px;">反推線寬 (W)</h4>
+                  <h4 style="margin-top: 0; color: #00f2fe; margin-bottom: 4px;">反推線寬 (W)</h4>
                   <div class="summary-item" style="display: flex; gap: 8px; align-items: center; margin-bottom: 6px; flex-wrap: wrap;">
                     <span style="font-size:12px;">H (%):</span> <input type="number" v-model.number="calcH" @change="requestPlotRedraw" step="0.5" style="width: 50px; background: rgba(255,255,255,0.1); border: 1px solid #4a5568; color: #fff; padding: 2px 4px; border-radius: 4px; text-align: center;">
                     <span style="font-size:12px;">T (%):</span> <input type="number" v-model.number="calcT" @change="requestPlotRedraw" step="0.5" style="width: 50px; background: rgba(255,255,255,0.1); border: 1px solid #4a5568; color: #fff; padding: 2px 4px; border-radius: 4px; text-align: center;">
