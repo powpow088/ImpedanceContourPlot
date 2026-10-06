@@ -79,9 +79,9 @@
                 <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #334155;">
                   <h4 style="margin-top: 0; color: #00f2fe; margin-bottom: 4px;">反推線寬 (W)</h4>
                   <div class="summary-item" style="display: flex; gap: 8px; align-items: center; margin-bottom: 6px; flex-wrap: wrap;">
-                    <span style="font-size:12px;">H (%):</span> <input type="number" v-model.number="calcH" @change="requestPlotRedraw" step="0.5" style="width: 50px; background: rgba(255,255,255,0.1); border: 1px solid #4a5568; color: #fff; padding: 2px 4px; border-radius: 4px; text-align: center;">
-                    <span style="font-size:12px;">T (%):</span> <input type="number" v-model.number="calcT" @change="requestPlotRedraw" step="0.5" style="width: 50px; background: rgba(255,255,255,0.1); border: 1px solid #4a5568; color: #fff; padding: 2px 4px; border-radius: 4px; text-align: center;">
-                    <span style="font-size:12px;">Z (%):</span> <input type="number" v-model.number="calcZ" @change="requestPlotRedraw" step="0.5" style="width: 50px; background: rgba(255,255,255,0.1); border: 1px solid #4a5568; color: #fff; padding: 2px 4px; border-radius: 4px; text-align: center;">
+                    <span style="font-size:12px;">H (%):</span> <input type="number" v-model.number="calcH" @change="requestPlotRedraw" step="1" style="width: 65px; background: rgba(255,255,255,0.1); border: 1px solid #4a5568; color: #fff; padding: 2px 4px; border-radius: 4px; text-align: center;">
+                    <span style="font-size:12px;">T (%):</span> <input type="number" v-model.number="calcT" @change="requestPlotRedraw" step="1" style="width: 65px; background: rgba(255,255,255,0.1); border: 1px solid #4a5568; color: #fff; padding: 2px 4px; border-radius: 4px; text-align: center;">
+                    <span style="font-size:12px;">Z (%):</span> <input type="number" v-model.number="calcZ" @change="requestPlotRedraw" step="1" style="width: 65px; background: rgba(255,255,255,0.1); border: 1px solid #4a5568; color: #fff; padding: 2px 4px; border-radius: 4px; text-align: center;">
                     W: 
                     <span v-if="calcWResult !== null" style="color: #a855f7; font-weight: bold; font-size: 1.2em; margin-left: 8px;">{{ calcWResult > 0 ? '+' : '' }}{{ calcWResult.toFixed(2) }}%</span>
                     <span v-else style="color: #ff4757; font-weight: bold; font-size: 1em; margin-left: 8px;">無對應解</span>
@@ -135,7 +135,7 @@
 import { ref, computed, nextTick } from 'vue'
 import Papa from 'papaparse'
 
-const smoothInterpolation = ref(true)
+const smoothInterpolation = ref(false)
 const showSamplingPoints = ref(false)
 const contourData = ref(null)
 const summaryData = ref(null)
@@ -166,14 +166,55 @@ const sortedMatrices = computed(() => {
     const min = all[0];
     const max = all[all.length - 1];
     const zero = all.find(m => m.t_pct === 0) || all[Math.floor(all.length / 2)];
-    all = Array.from(new Set([min, zero, max])).sort((a, b) => a.t_pct - b.t_pct);
+    
+    const targets = [min, zero, max];
+    let lower = null;
+    let upper = null;
+    
+    if (calcT.value !== 0 && Math.abs(calcT.value) <= tLimitTarget.value) {
+       const exist = all.find(m => m.t_pct === calcT.value);
+       if (exist) {
+         targets.push(exist);
+       } else {
+         for (const m of all) {
+             if (m.t_pct < calcT.value) lower = m;
+             if (m.t_pct > calcT.value && !upper) upper = m; 
+         }
+         if (lower) targets.push(lower);
+         if (upper) targets.push(upper);
+       }
+    }
+    
+    const uniqueT = new Set();
+    const finalSet = [];
+    for (const item of targets) {
+      if (!uniqueT.has(item.t_pct)) {
+        uniqueT.add(item.t_pct);
+        finalSet.push(item);
+      }
+    }
+    
+    return finalSet.sort((a, b) => {
+      if (a.t_pct === 0) return -1;
+      if (b.t_pct === 0) return 1;
+      
+      const isATarget = (a.t_pct === calcT.value) || (lower && a.t_pct === lower.t_pct) || (upper && a.t_pct === upper.t_pct);
+      const isBTarget = (b.t_pct === calcT.value) || (lower && b.t_pct === lower.t_pct) || (upper && b.t_pct === upper.t_pct);
+      
+      if (isATarget && !isBTarget) return -1;
+      if (!isATarget && isBTarget) return 1;
+      
+      return a.t_pct - b.t_pct;
+    });
+  } else if (displayMode.value === 'all') {
+    return all.sort((a, b) => {
+      if (a.t_pct === 0) return -1;
+      if (b.t_pct === 0) return 1;
+      return a.t_pct - b.t_pct;
+    });
   }
   
-  return all.sort((a, b) => {
-    if (a.t_pct === 0) return -1;
-    if (b.t_pct === 0) return 1;
-    return a.t_pct - b.t_pct;
-  });
+  return all;
 })
 
 function requestPlotRedraw() {
@@ -440,6 +481,8 @@ function drawAllPlots() {
     // 只計算在 tLimitTarget 範圍內的 T，來決定全域安全交集
     const validMatrices = contourData.value.matrices.filter(m => Math.abs(m.t_pct) <= tLimitTarget.value);
     
+    const plottedT = new Set();
+    
     for (const matrixObj of validMatrices) {
       const tVal = matrixObj.t_pct;
       const zMatrix = matrixObj.z_matrix;
@@ -461,6 +504,13 @@ function drawAllPlots() {
         graphData.push({ tVal, zMatrix, localHLeft, localHRight, divId });
       }
     }
+
+    // 重新排序 graphData，確保順序與 Vue 畫面 (sortedMatrices) 保持絕對一致
+    graphData.sort((a, b) => {
+      const idxA = sortedMatrices.value.findIndex(m => m.t_pct === a.tVal);
+      const idxB = sortedMatrices.value.findIndex(m => m.t_pct === b.tVal);
+      return idxA - idxB;
+    });
 
     summaryData.value = {
       wLimit: Math.max(...yVals.map(Math.abs)) || 10,
@@ -490,10 +540,28 @@ function drawAllPlots() {
     ];
 
     for (const gd of graphData) {
+      // 產生高解析度的網格供 Plotly 繪圖，以消除 Plotly 預設繪圖內插與大頭針計算(雙線性內插)之間的數學誤差
+      const denseXVals = [];
+      for(let x = xVals[0]; x <= xVals[xVals.length-1]; x += 0.5) denseXVals.push(x);
+      if (denseXVals.length === 0 || denseXVals[denseXVals.length-1] < xVals[xVals.length-1]) denseXVals.push(xVals[xVals.length-1]);
+
+      const denseYVals = [];
+      for(let y = yVals[0]; y <= yVals[yVals.length-1]; y += 0.5) denseYVals.push(y);
+      if (denseYVals.length === 0 || denseYVals[denseYVals.length-1] < yVals[yVals.length-1]) denseYVals.push(yVals[yVals.length-1]);
+
+      const denseZMatrix = [];
+      for (let i = 0; i < denseYVals.length; i++) {
+        const row = [];
+        for (let j = 0; j < denseXVals.length; j++) {
+           row.push(getZ(denseYVals[i], denseXVals[j], gd.zMatrix));
+        }
+        denseZMatrix.push(row);
+      }
+
       const trace = {
-        z: gd.zMatrix,
-        x: xVals,
-        y: yVals,
+        z: denseZMatrix,
+        x: denseXVals,
+        y: denseYVals,
         type: 'contour',
         colorscale: colorscale,
         contours: {
@@ -540,18 +608,20 @@ function drawAllPlots() {
       }
 
       if (calcWResult.value !== null) {
+        const pointZ = getZ3D(calcWResult.value, calcH.value || 0, gd.tVal);
         traces.push({
           x: [calcH.value || 0],
           y: [calcWResult.value],
-          mode: 'text',
+          mode: 'markers',
           type: 'scatter',
           name: 'Target W',
-          text: ['📍'],
-          textposition: 'middle center',
-          textfont: {
-            size: 18
+          marker: {
+            color: 'red',
+            size: 8,
+            line: { color: 'white', width: 1 }
           },
-          hoverinfo: 'x+y',
+          text: [`H: ${calcH.value || 0}%<br>W: ${calcWResult.value.toFixed(2)}%<br>Z: ${pointZ.toFixed(2)}%`],
+          hoverinfo: 'text',
           showlegend: false
         });
       }
@@ -567,8 +637,11 @@ function drawAllPlots() {
         shapes.unshift({ type: 'rect', x0: globalHLeft, x1: globalHRight, y0: -limitW, y1: limitW, fillcolor: '#ff69b4', opacity: 0.25, line: { width: 0 } });
       }
 
+      const isTargetT = gd.tVal === calcT.value;
+      const titleColor = isTargetT ? '#ffcc00' : '#e2e8f0';
+
       const layout = {
-        title: { text: `T = ${gd.tVal}%`, font: { color: '#e2e8f0', family: 'Inter', size: 14 } },
+        title: { text: `T = ${gd.tVal}%`, font: { color: titleColor, family: 'Inter', size: 14, weight: isTargetT ? 'bold' : 'normal' } },
         paper_bgcolor: 'transparent',
         plot_bgcolor: 'transparent',
         xaxis: { title: 'H (%)', range: [-12, 12], color: '#a0aec0', gridcolor: '#2d3748', zerolinecolor: '#4a5568' },
@@ -644,7 +717,7 @@ function drawAllPlots() {
 }
 .charts-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 20px;
 }
 .chart-container {
