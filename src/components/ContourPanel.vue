@@ -84,7 +84,7 @@
                     <span style="font-size:12px;">Z (%):</span> <input type="number" v-model.number="calcZ" @change="requestPlotRedraw" step="1" style="width: 65px; background: rgba(255,255,255,0.1); border: 1px solid #4a5568; color: #fff; padding: 2px 4px; border-radius: 4px; text-align: center;">
                     W: 
                     <span v-if="calcWResult !== null" style="color: #a855f7; font-weight: bold; font-size: 1.2em; margin-left: 8px;">{{ calcWResult > 0 ? '+' : '' }}{{ calcWResult.toFixed(2) }}%</span>
-                    <span v-else style="color: #ff4757; font-weight: bold; font-size: 1em; margin-left: 8px;">無對應解</span>
+                    <span v-else style="color: #ff4757; font-weight: bold; font-size: 1em; margin-left: 8px;">---</span>
                   </div>
                   <div class="summary-item" style="display: flex; gap: 8px; align-items: center; color: #e2e8f0; font-size: 13px;">
                     <span>W中值:</span>
@@ -361,7 +361,7 @@ function parseAndRender() {
         tStep.value = 1.0;
       }
 
-      parseSuccess.value = `解析成功！共 ${data.length} 筆資料 `;
+      parseSuccess.value = ` ${data.length} 筆資料 `;
       
       nextTick(() => {
         drawAllPlots();
