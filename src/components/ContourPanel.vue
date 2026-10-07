@@ -572,6 +572,7 @@ function drawAllPlots() {
           line: { color: 'rgba(0,0,0,0.2)', width: 0.5 }
         },
         line: { smoothing: smoothInterpolation.value ? 1.3 : 0 },
+        hovertemplate: 'x: %{x}<br>y: %{y}<br>z: %{z}<extra></extra>',
         colorbar: {
           title: 'Z0 (%)',
           titleside: 'right',
